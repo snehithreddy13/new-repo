@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Emergency Dispatch Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f1524; color:#f2f6ff; margin:0; }
+    header { padding:16px 24px; background:#151f35; border-bottom:1px solid #30456d; }
+    .container { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:18px 24px; }
+    .card { background:#16233d; border:1px solid #2c446e; border-radius:10px; padding:14px; }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .stat { background:#0e1830; border-radius:8px; padding:10px; }
+    .value { font-size:26px; font-weight:700; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border-bottom:1px solid #284374; padding:8px; text-align:left; }
+    .feed { max-height:310px; overflow:auto; background:#0e1830; border-radius:8px; padding:10px; }
+    .feed-item { border-bottom:1px solid #2a4270; padding:6px 0; font-size:14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>🚑 High-Fidelity Emergency Dispatch Dashboard</h2>
+  </header>
+
+  <main class="container">
+    <section class="card" style="grid-column:1 / span 2;">
+      <h3>Live KPI</h3>
+      <div class="stats">
+        <div class="stat"><div>Active Emergencies</div><div class="value" id="active_emergencies">0</div></div>
+        <div class="stat"><div>Available Ambulances</div><div class="value" id="availability">0</div></div>
+        <div class="stat"><div>Total Lives Saved</div><div class="value" id="total_lives_saved">0</div></div>
+        <div class="stat"><div>Critical / Minor</div><div class="value" id="severity_mix">0 / 0</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Hospital Availability</h3>
+      <table>
+        <thead><tr><th>Hospital</th><th>Idle Units</th><th>Capacity</th></tr></thead>
+        <tbody id="hospital_table"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h3>Active Alerts Feed</h3>
+      <div id="alert_feed" class="feed"></div>
+    </section>
+  </main>
+
+  <script>
+    async function refresh() {
+      const res = await fetch('/api/stats');
+      const s = await res.json();
+
+      document.getElementById('active_emergencies').textContent = s.active_emergencies;
+      document.getElementById('availability').textContent = s.availability;
+      document.getElementById('total_lives_saved').textContent = s.total_lives_saved;
+      document.getElementById('severity_mix').textContent = `${s.critical_incidents} / ${s.minor_incidents}`;
+
+      const tbody = document.getElementById('hospital_table');
+      tbody.innerHTML = '';
+      Object.entries(s.hospital_idle).forEach(([hid, count]) => {
+        const row = document.createElement('tr');
+        const cap = s.hospital_capacity?.[hid];
+        const capText = cap ? `${cap.load}/${cap.capacity}` : "-";
+        row.innerHTML = `<td>${hid}</td><td>${count}</td><td>${capText}</td>`;
+        tbody.appendChild(row);
+      });
+
+      const feed = document.getElementById('alert_feed');
+      feed.innerHTML = '';
+      s.alerts.slice().reverse().forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'feed-item';
+        div.textContent = msg;
+        feed.appendChild(div);
+      });
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>
